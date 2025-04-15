@@ -1,5 +1,7 @@
 <script lang="ts">
     import { page } from '$app/stores';
+    import { browser } from '$app/environment';
+    import { onMount } from 'svelte';
     
     $: currentPath = $page.url.pathname;
     
@@ -7,26 +9,40 @@
         { href: '/', label: 'Upload New', icon: '📄' },
         { href: '/document', label: 'Documents', icon: '📚' }
     ];
+
+    let isScrolled = false;
+    
+    onMount(() => {
+        if (browser) {
+            const handleScroll = () => {
+                isScrolled = window.scrollY > 0;
+            };
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            return () => window.removeEventListener('scroll', handleScroll);
+        }
+    });
 </script>
 
-<nav class="bg-gradient-to-r from-orange-600 via-red-600 to-purple-700 text-white shadow-lg">
-    <div class="mx-auto max-w-xl px-4 py-4">
-        <div class="flex items-center justify-between">
-            <div class="text-xl font-bold flex items-center gap-2">
-                <span class="text-2xl">🔥</span>
-                <span class="text-white">Cortex Flames</span>
+<nav class="sticky top-0 z-50 bg-gradient-to-r from-orange-600 via-red-600 to-purple-700">
+    <div class="mx-auto max-w-4xl px-8">
+        <div class="flex h-16 items-center">
+            <div class="flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🔥</span>
+                    <span class="text-white text-xl font-bold">Cortex Flames</span>
+                </div>
             </div>
-            <div class="flex gap-4">
+            <div class="ml-16 flex gap-2">
                 {#each links as { href, label, icon }}
                     <a 
                         {href}
-                        class="flex items-center gap-2 px-4 py-2 rounded-md transition-all bg-black/10
+                        class="flex items-center gap-2 px-4 py-2 rounded-xl
                             {currentPath === href 
-                                ? 'bg-white text-purple-700 font-medium shadow-lg' 
-                                : 'text-white hover:bg-white hover:text-purple-700'}"
+                                ? 'bg-white text-purple-700 font-medium' 
+                                : 'text-white hover:bg-white/10'}"
                     >
                         <span class="text-lg">{icon}</span>
-                        <span>{label}</span>
+                        <span class="font-medium whitespace-nowrap">{label}</span>
                     </a>
                 {/each}
             </div>
@@ -35,13 +51,7 @@
 </nav>
 
 <style>
-    /* Optional: Add a subtle animation on hover */
     a {
-        transform: translateY(0);
-        transition: transform 0.15s ease-in-out;
-    }
-    
-    a:hover {
-        transform: translateY(-1px);
+        transition: all 0.08s ease-out;
     }
 </style> 

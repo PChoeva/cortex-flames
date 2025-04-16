@@ -3,6 +3,9 @@
 	let uploading = false;
 	let error: string | null = null;
 	let dragOver = false;
+	let fileInput: HTMLInputElement;
+
+	$: selectedFileName = files?.[0]?.name;
 
 	async function handleSubmit() {
 		if (!files || files.length === 0) {
@@ -50,6 +53,19 @@
 			files = e.dataTransfer.files;
 		}
 	}
+
+	function clearFile(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		files = null;
+		error = null;
+	}
+
+	function triggerFileInput(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		fileInput.click();
+	}
 </script>
 
 <div class="p-8 bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden">
@@ -62,7 +78,7 @@
 	<form on:submit|preventDefault={handleSubmit} class="space-y-6">
 		<!-- Upload area -->
 		<div
-			class="rounded-2xl border-3 border-dashed transition-all duration-300 relative group
+			class="mt-4 rounded-2xl border-3 border-dashed transition-all duration-300 relative group
 				{dragOver 
 					? 'border-purple-400 bg-purple-50/50' 
 					: 'border-purple-200 hover:border-orange-400 bg-white/50'}"
@@ -73,18 +89,44 @@
 			<input 
 				type="file" 
 				bind:files 
+				bind:this={fileInput}
 				accept="image/*,.pdf,.doc,.docx,.txt,.rtf" 
-				class="w-full p-12 text-center relative z-10 opacity-0 cursor-pointer"
+				class="hidden"
 				disabled={uploading}
 			/>
 			
-			<!-- Upload overlay -->
-			<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-12">
-				<div class="w-16 h-16 mb-4 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-					<span class="text-3xl"></span>
+			<div 
+				class="w-full p-6 text-center relative z-10 cursor-pointer"
+				on:click={triggerFileInput}
+			>
+				<div class="flex flex-col items-center justify-center">
+					<div class="w-16 h-16 mb-4 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+						<span class="text-3xl">{selectedFileName ? '📄' : '📎'}</span>
+					</div>
+					{#if selectedFileName}
+						<p class="text-lg font-medium text-gray-700">{selectedFileName}</p>
+						<div class="flex gap-2 mt-2 items-center">
+							<button 
+								type="button"
+								class="text-sm text-red-500 hover:text-red-600"
+								on:click={clearFile}
+							>
+								Remove
+							</button>
+							<span class="text-gray-400">|</span>
+							<button 
+								type="button"
+								class="text-sm text-gray-500 hover:text-gray-600"
+								on:click={triggerFileInput}
+							>
+								Click to change file
+							</button>
+						</div>
+					{:else}
+						<p class="text-lg font-medium text-gray-700">Drop files here or click to upload</p>
+						<p class="text-sm text-gray-500 mt-2">Supports images, PDFs, DOC, and TXT files</p>
+					{/if}
 				</div>
-				<p class="text-lg font-medium text-gray-700">Drop files here or click to upload</p>
-				<p class="text-sm text-gray-500 mt-2">Supports images, PDFs, DOC, and TXT files</p>
 			</div>
 		</div>
 
@@ -96,16 +138,13 @@
 
 		<button
 			type="submit"
-			class="w-full rounded-xl bg-gradient-to-r from-orange-500 to-purple-600 p-4 text-white font-medium
-				hover:from-orange-600 hover:to-purple-700 disabled:opacity-50 shadow-lg hover:shadow-xl 
-				transition-all duration-300 transform hover:-translate-y-1"
-			disabled={uploading}
+			class="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-purple-600 text-white font-medium 
+				hover:from-orange-600 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-1 
+				disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+			disabled={!files || uploading}
 		>
 			{#if uploading}
-				<span class="flex items-center justify-center gap-2">
-					<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-					Uploading...
-				</span>
+				Uploading...
 			{:else}
 				Upload Document
 			{/if}

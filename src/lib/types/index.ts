@@ -5,7 +5,6 @@ export interface Document {
     mimeType: string;
     size: number;
     url: string;
-    versionNumber: number;
-    baseFilename: string;
     uploadedAt: string;
+    deleted: boolean;
 } 

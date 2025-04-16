@@ -1,7 +1,5 @@
 <script lang="ts">
     import { page } from '$app/stores';
-    import { browser } from '$app/environment';
-    import { onMount } from 'svelte';
     
     $: currentPath = $page.url.pathname;
     
@@ -10,18 +8,7 @@
         { href: '/document', label: 'Documents', icon: '📚' }
     ];
 
-    let isScrolled = false;
     let isMenuOpen = false;
-    
-    onMount(() => {
-        if (browser) {
-            const handleScroll = () => {
-                isScrolled = window.scrollY > 0;
-            };
-            window.addEventListener('scroll', handleScroll, { passive: true });
-            return () => window.removeEventListener('scroll', handleScroll);
-        }
-    });
 </script>
 
 <nav class="sticky top-0 z-50 bg-gradient-to-r from-orange-600 via-red-600 to-purple-700">

@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { document } from '$lib/server/db/schema';
 import { uploadFile } from '$lib/server/storage/blob';
 import type { RequestHandler } from '@sveltejs/kit';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -14,29 +14,26 @@ export const POST: RequestHandler = async ({ request }) => {
 			throw error(400, 'No file uploaded');
 		}
 
-		// Get base filename (without extension)
-		const baseFilename = file.name.replace(/\.[^/.]+$/, "");
-		
-		// Check if file exists and get latest version
-		const existingVersions = await db.select()
+		// Get base name and extension
+		const ext = file.name.match(/\.[^/.]+$/)?.[0] || '';
+		const baseName = file.name.slice(0, -ext.length);
+
+		// Check if file exists
+		const existingFiles = await db.select()
 			.from(document)
-			.where(eq(document.baseFilename, baseFilename))
-			.orderBy(desc(document.versionNumber));
+			.where(eq(document.originalName, file.name));
 
-		const nextVersion = existingVersions.length > 0 ? existingVersions[0].versionNumber + 1 : 1;
-		
-		// Create versioned filename
-		const versionedName = nextVersion > 1 
-			? `${baseFilename} (${nextVersion})${file.name.slice(baseFilename.length)}`
-			: file.name;
+		// If file exists, append number
+		let finalName = file.name;
+		if (existingFiles.length > 0) {
+			finalName = `${baseName} (${existingFiles.length})${ext}`;
+		}
 
-		const url = await uploadFile(file, versionedName);
+		const url = await uploadFile(file, finalName);
 
 		const newDocument = await db.insert(document).values({
-			filename: versionedName,
-			originalName: file.name,
-			baseFilename,
-			versionNumber: nextVersion,
+			filename: finalName,
+			originalName: finalName,
 			mimeType: file.type,
 			size: file.size,
 			url

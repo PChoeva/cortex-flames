@@ -4,7 +4,7 @@
     import FileList from '$lib/components/FileList.svelte';
     
     export let data: PageData;
-    $: documents = (data.documents ?? []) as unknown as Document[];
+    $: documents = data.documents as Document[];
 </script>
 
 <div class="p-8 bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden">
@@ -18,7 +18,7 @@
     {#if documents.length === 0}
         <div class="text-center py-12">
             <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-100 flex items-center justify-center">
-                <span class="text-3xl">��</span>
+                <span class="text-3xl">📄</span>
             </div>
             <p class="text-gray-500 mb-4">No documents uploaded yet.</p>
             <a 

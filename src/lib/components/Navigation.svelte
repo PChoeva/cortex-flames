@@ -1,5 +1,6 @@
 <script lang="ts">
     import { page } from '$app/stores';
+    import { slide } from 'svelte/transition';
     
     $: currentPath = $page.url.pathname;
     

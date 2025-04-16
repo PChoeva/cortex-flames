@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "npm run db:migrate && vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -16,10 +16,12 @@
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
 		"db:push": "drizzle-kit push",
-		"db:migrate": "drizzle-kit migrate",
+		"db:migrate": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
 		"storybook": "storybook dev -p 6006",
-		"build-storybook": "storybook build"
+		"build-storybook": "storybook build",
+		"db:generate": "drizzle-kit generate",
+		"postinstall": "npm run db:generate"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^3",

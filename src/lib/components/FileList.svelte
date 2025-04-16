@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Document } from '$lib/types';
-	import { formatFileSize } from '$lib/utils';
+	import { formatFileSize, formatDate } from '$lib/utils';
 	import DeleteModal from './DeleteModal.svelte';
 	
 	export let documents: Document[];
@@ -46,27 +46,27 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4">
 	{#each documents as document}
 		<div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
-			<div class="flex justify-between items-start">
-				<div class="flex-1">
-					<h3 class="text-xl font-semibold bg-gradient-to-r from-orange-600 to-purple-700 text-transparent bg-clip-text relative">
+			<div class="flex justify-between items-center gap-4">
+				<div class="flex-1 min-w-0">
+					<h3 class="text-xl font-semibold bg-gradient-to-r from-orange-600 to-purple-700 text-transparent bg-clip-text relative truncate">
 						{document.filename}
 						{#if document.deleted}
 							<div class="absolute inset-y-1/2 w-full h-0.5 bg-gray-300"></div>
 						{/if}
 					</h3>
 					<p class="text-sm text-gray-600 mt-1">
-						{formatFileSize(document.size)} • Uploaded {document.uploadedAt}
+						{formatFileSize(document.size)} • {formatDate(document.uploadedAt)}
 					</p>
-					
-					<div class="mt-4 flex gap-2">
+				</div>
+
+				{#if !document.deleted}
+					<div class="flex gap-2 items-center">
 						<a 
 							href="/document/{document.id}" 
 							class="px-4 py-2 rounded-xl bg-white text-purple-700 font-medium hover:bg-purple-50 transition-colors shadow-sm"
-							class:pointer-events-none={document.deleted}
-							class:opacity-50={document.deleted}
 						>
 							View
 						</a>
@@ -74,21 +74,19 @@
 							href={document.url} 
 							download={document.filename}
 							class="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-purple-600 text-white font-medium hover:from-orange-600 hover:to-purple-700 transition-all shadow-sm"
-							class:pointer-events-none={document.deleted}
-							class:opacity-50={document.deleted}
 						>
 							Download
 						</a>
-						{#if !document.deleted}
-							<button 
-								on:click={() => handleDeleteClick(document)}
-								class="px-4 py-2 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors shadow-sm"
-							>
-								Delete
-							</button>
-						{/if}
+						<button 
+							on:click={() => handleDeleteClick(document)}
+							class="px-4 py-2 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors shadow-sm"
+						>
+							Delete
+						</button>
 					</div>
-				</div>
+				{:else}
+					<span class="text-sm text-gray-500 italic">Deleted</span>
+				{/if}
 			</div>
 		</div>
 	{/each}
@@ -97,6 +95,9 @@
 <DeleteModal 
 	show={showDeleteModal}
 	filename={documentToDelete?.filename ?? ''}
-	onConfirm={confirmDelete}
-	onCancel={cancelDelete}
+	onConfirm={() => documentToDelete && deleteDocument(documentToDelete)}
+	onCancel={() => {
+		showDeleteModal = false;
+		documentToDelete = null;
+	}}
 />

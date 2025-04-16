@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { document } from '$lib/server/db/schema';
 import { uploadFile } from '$lib/server/storage/blob';
 import type { RequestHandler } from '@sveltejs/kit';
+import type { Document } from '$lib/types';
 import { eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -31,15 +32,20 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const url = await uploadFile(file, finalName);
 
-		const newDocument = await db.insert(document).values({
-			filename: finalName,
-			originalName: finalName,
-			mimeType: file.type,
-			size: file.size,
-			url
-		}).returning();
+		// Insert new document
+		const [newDocument] = await db.insert(document)
+			.values({
+				filename: finalName,
+				originalName: finalName,
+				mimeType: file.type,
+				size: file.size,
+				url,
+				deleted: false,
+				uploadedAt: new Date()
+			})
+			.returning();
 
-		return json({ success: true, document: newDocument[0] });
+		return json({ success: true, document: newDocument });
 	} catch (e) {
 		console.error('Upload error:', e);
 		throw error(500, 'Failed to process upload');

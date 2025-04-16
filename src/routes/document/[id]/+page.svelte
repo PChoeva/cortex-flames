@@ -10,9 +10,7 @@
         <!-- Decorative corner accent -->
         <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-purple-500/10 rounded-bl-[100px]" />
         
-        <h1 class="mb-8 text-3xl font-bold bg-gradient-to-r from-orange-600 to-purple-700 text-transparent bg-clip-text">
-            {data.document.originalName}
-        </h1>
+        <h1 class="text-2xl font-bold">{data.document.filename}</h1>
 
         <FilePreview 
             url={data.document.url}

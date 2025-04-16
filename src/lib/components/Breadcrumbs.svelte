@@ -6,7 +6,7 @@
     $: isDocumentDetail = segments[0] === 'document' && segments.length === 2;
     
     // Get the document name from the page data if we're on a document detail page
-    $: documentName = isDocumentDetail && $page.data.document?.originalName;
+    $: documentName = isDocumentDetail && $page.data.document?.filename;
     
     $: breadcrumbs = segments.map((segment, index) => {
         const url = '/' + segments.slice(0, index + 1).join('/');

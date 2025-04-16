@@ -3,8 +3,7 @@ import { db } from '$lib/server/db';
 import { document } from '$lib/server/db/schema';
 import { uploadFile } from '$lib/server/storage/blob';
 import type { RequestHandler } from '@sveltejs/kit';
-import type { Document } from '$lib/types';
-import { eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -19,16 +18,23 @@ export const POST: RequestHandler = async ({ request }) => {
 		const ext = file.name.match(/\.[^/.]+$/)?.[0] || '';
 		const baseName = file.name.slice(0, -ext.length);
 
-		// Check if file exists
+		// Check for both active and deleted files with the same name
 		const existingFiles = await db.select()
 			.from(document)
-			.where(eq(document.originalName, file.name));
+			.where(
+				and(
+					eq(document.originalName, file.name),
+					or(
+						eq(document.deleted, true),
+						eq(document.deleted, false)
+					)
+				)
+			);
 
-		// If file exists, append number
-		let finalName = file.name;
-		if (existingFiles.length > 0) {
-			finalName = `${baseName} (${existingFiles.length})${ext}`;
-		}
+		// If file exists (whether deleted or not), append number
+		const finalName = existingFiles.length > 0 
+			? `${baseName} (${existingFiles.length})${ext}`
+			: file.name;
 
 		const url = await uploadFile(file, finalName);
 
@@ -36,7 +42,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const [newDocument] = await db.insert(document)
 			.values({
 				filename: finalName,
-				originalName: finalName,
+				originalName: file.name,  // Store original name without numbering
 				mimeType: file.type,
 				size: file.size,
 				url,

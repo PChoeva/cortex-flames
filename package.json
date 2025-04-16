@@ -68,6 +68,7 @@
 	"dependencies": {
 		"@neondatabase/serverless": "^0.10.4",
 		"@vercel/blob": "^1.0.0",
-		"drizzle-orm": "^0.40.0"
+		"drizzle-orm": "^0.40.0",
+		"openai": "^4.94.0"
 	}
 }

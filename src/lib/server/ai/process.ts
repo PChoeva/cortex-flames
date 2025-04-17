@@ -6,7 +6,7 @@ import { generateSummary } from './openai';
 import { extractContent } from '../document/process-content';
 
 export async function processDocument(
-    doc: typeof document.$inferSelect,  // Get type from schema
+    doc: typeof document.$inferSelect,
     type: ContentType
 ) {
     try {
@@ -14,21 +14,26 @@ export async function processDocument(
 
         switch (type) {
             case 'summary': {
-                // For now, let's assume we have the raw text already
-                const [rawText] = await db.select()
-                    .from(documentContent)
-                    .where(
-                        and(
-                            eq(documentContent.documentId, doc.id),
-                            eq(documentContent.type, 'raw_text')
-                        )
-                    );
+                if (doc.mimeType === 'text/plain') {
+                    const response = await fetch(doc.url);
+                    const text = await response.text();
+                    content = await generateSummary(text);
+                } else {
+                    const [rawText] = await db.select()
+                        .from(documentContent)
+                        .where(
+                            and(
+                                eq(documentContent.documentId, doc.id),
+                                eq(documentContent.type, 'raw_text')
+                            )
+                        );
 
-                if (!rawText) {
-                    throw new Error('No raw text available for summarization');
+                    if (!rawText) {
+                        throw new Error('No raw text available for overview generation');
+                    }
+
+                    content = await generateSummary(rawText.content);
                 }
-
-                content = await generateSummary(rawText.content);
                 break;
             }
 
@@ -36,7 +41,6 @@ export async function processDocument(
             case 'ocr_text':
             case 'pdf_text':
             case 'doc_text': {
-                // Fetch the file from storage
                 const response = await fetch(doc.url);
                 const file = await response.blob();
                 
@@ -46,7 +50,7 @@ export async function processDocument(
             }
         }
 
-        // Store the processed content
+        // Simple insert of the processed content
         await db.insert(documentContent)
             .values({
                 documentId: doc.id,
@@ -60,11 +64,7 @@ export async function processDocument(
             .where(eq(document.id, doc.id));
 
     } catch (error) {
-        // Update document status to failed
-        await db.update(document)
-            .set({ processingStatus: 'failed' })
-            .where(eq(document.id, doc.id));
-
+        console.error('Processing error:', error);
         throw error;
     }
 } 

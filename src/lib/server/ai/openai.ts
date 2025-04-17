@@ -11,34 +11,60 @@ export const openai = new OpenAI({
 
 export async function generateSummary(text: string): Promise<string> {
     try {
-        console.log('Sending request to OpenAI for summary generation');
-        
+        const startTime = Date.now();
+        process.stdout.write('Generating overview');
+
+        // Update dots every second while waiting
+        const progressInterval = setInterval(() => {
+            process.stdout.write('.');
+        }, 1000);
+
         const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o",
             messages: [
                 {
                     role: "system",
-                    content: "You are a helpful assistant that generates concise summaries. Keep summaries clear and under 250 words."
+                    content: `You are a document analysis assistant that creates comprehensive overviews. Your task is to:
+
+1. Create a structured overview of the document's content
+2. Break down the main sections and their key points
+3. List important details, facts, or data points
+4. Identify any action items or next steps
+5. Note any significant dates, numbers, or references
+
+Format your response as a clear outline with:
+• Main topics as headings
+• Key points as bullet points
+• Important details indented under relevant points
+• Any action items or next steps in a separate section
+
+Keep the overview factual and objective, maintaining the document's original terminology.`
                 },
                 {
                     role: "user",
-                    content: `Please summarize the following text:\n\n${text}`
+                    content: `Please create a structured overview of this document:\n\n${text}`
                 }
             ],
-            temperature: 0.7,
-            max_tokens: 500
+            temperature: 0.2,
+            max_tokens: 1500,
+            top_p: 0.9,
+            frequency_penalty: 0.1,
+            presence_penalty: 0.1
         });
 
-        console.log('Received response from OpenAI');
+        // Clear the interval and move to a new line
+        clearInterval(progressInterval);
+        const endTime = Date.now();
+        process.stdout.write(`\nCompleted in ${(endTime - startTime) / 1000} seconds\n`);
 
         if (!response.choices[0].message.content) {
-            throw new Error('No summary content received from OpenAI');
+            throw new Error('No overview content received from OpenAI');
         }
 
         return response.choices[0].message.content;
     } catch (error) {
-        console.error('OpenAI API error:', error);
-        throw new Error('Failed to generate summary');
+        console.error('\nOpenAI API error:', error);
+        throw new Error('Failed to generate overview');
     }
 }
 
@@ -46,7 +72,7 @@ export async function generateSummary(text: string): Promise<string> {
 export async function testOpenAI(): Promise<boolean> {
     try {
         const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o",
             messages: [
                 {
                     role: "user",

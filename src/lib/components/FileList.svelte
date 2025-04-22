@@ -71,6 +71,12 @@
 							View
 						</a>
 						<a 
+							href="/quiz" 
+							class="px-4 py-2 rounded-xl bg-white text-purple-700 font-medium hover:bg-purple-50 transition-colors shadow-sm"
+						>
+							Quizzes
+						</a>
+						<a 
 							href={document.url} 
 							download={document.filename}
 							class="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-purple-600 text-white font-medium hover:from-orange-600 hover:to-purple-700 transition-all shadow-sm"

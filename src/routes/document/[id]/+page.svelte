@@ -6,7 +6,9 @@
     export let data: PageData;
     let { document, contents } = data;
 
-    let processing = false;
+    let processingText = false;
+    let processingSummary = false;
+    let processingQuiz = false;
     let error: string | null = null;
     let isTextExpanded = false;
 
@@ -29,8 +31,13 @@
     }
 
     async function processDocument(type: ContentType) {
+        if (type === 'raw_text') {
+            processingText = true;
+        } else if (type === 'summary') {
+            processingSummary = true;
+        }
+        
         try {
-            processing = true;
             error = null;
 
             const response = await fetch(`/api/document/${document.id}/process`, {
@@ -47,7 +54,7 @@
             }
 
             // Poll for completion
-            while (processing) {
+            while (processingText || processingSummary) {
                 await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between checks
                 const isComplete = await checkProcessingStatus(document.id);
                 if (isComplete) {
@@ -62,7 +69,28 @@
             console.error('Processing error:', e);
             error = e instanceof Error ? e.message : 'Failed to process document';
         } finally {
-            processing = false;
+            processingText = false;
+            processingSummary = false;
+        }
+    }
+
+    async function generateQuiz() {
+        try {
+            processingQuiz = true;
+            const response = await fetch(`/api/document/${document.id}/quiz`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to generate quiz');
+            }
+
+            await invalidateAll();
+        } catch (e) {
+            console.error('Quiz generation error:', e);
+            error = 'Failed to generate quiz';
+        } finally {
+            processingQuiz = false;
         }
     }
 </script>
@@ -107,8 +135,8 @@
                             class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 
                                    disabled:opacity-50 transition-colors duration-200 flex items-center gap-2 flex-1"
                             on:click={() => processDocument('raw_text')}
-                            disabled={processing || document.processingStatus === 'processing'}>
-                            {#if processing && !getContent('raw_text')}
+                            disabled={processingText || document.processingStatus === 'processing'}>
+                            {#if processingText && !getContent('raw_text')}
                                 <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -138,9 +166,9 @@
                                disabled:opacity-50 transition-colors duration-200 flex items-center gap-2
                                {document.mimeType !== 'text/plain' ? 'flex-1' : 'w-auto'}"
                         on:click={() => processDocument('summary')}
-                        disabled={processing || document.processingStatus === 'processing' || 
+                        disabled={processingSummary || document.processingStatus === 'processing' || 
                                  (document.mimeType !== 'text/plain' && !getContent('raw_text'))}>
-                        {#if processing && (document.mimeType !== 'text/plain' || !getContent('raw_text'))}
+                        {#if processingSummary && (document.mimeType !== 'text/plain' || !getContent('raw_text'))}
                             <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -209,15 +237,15 @@
                             <button 
                                 class="text-sm px-3 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-2"
                                 on:click={() => processDocument('summary')}
-                                disabled={processing}
+                                disabled={processingSummary}
                             >
-                                {#if processing}
+                                {#if processingSummary}
                                     <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
                                 {/if}
-                                {processing ? 'Regenerating...' : 'Regenerate'}
+                                {processingSummary ? 'Regenerating...' : 'Regenerate'}
                             </button>
                         </div>
                         <div class="p-4 text-gray-700">
@@ -226,15 +254,15 @@
                                 <button 
                                     class="px-4 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-2"
                                     on:click={() => processDocument('summary')}
-                                    disabled={processing}
+                                    disabled={processingSummary}
                                 >
-                                    {#if processing}
+                                    {#if processingSummary}
                                         <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
                                     {/if}
-                                    {processing ? 'Trying Again...' : 'Try Again'}
+                                    {processingSummary ? 'Trying Again...' : 'Try Again'}
                                 </button>
                             {:else}
                                 {getContent('summary')?.content}
@@ -242,6 +270,26 @@
                         </div>
                     </div>
                 {/if}
+
+                <!-- Quiz section with generate button -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="border-b border-gray-100 p-4 flex justify-between items-center">
+                        <h2 class="text-lg font-medium text-gray-800">Quiz</h2>
+                        <button 
+                            class="text-sm px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-2"
+                            on:click={generateQuiz}
+                            disabled={processingQuiz}
+                        >
+                            {#if processingQuiz}
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            {/if}
+                            {processingQuiz ? 'Generating...' : 'Generate Quiz'}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

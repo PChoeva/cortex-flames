@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { document, documentContent } from '$lib/server/db/schema';
+import { document, documentContent, quiz } from '$lib/server/db/schema';
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
@@ -20,6 +20,11 @@ export const load: PageServerLoad = async ({ params }) => {
         .from(documentContent)
         .where(eq(documentContent.documentId, documentId));
 
+    // Get all quizzes for this document
+    const quizzes = await db.select()
+        .from(quiz)
+        .where(eq(quiz.documentId, documentId));
+
     // Fetch the original file content
     let originalContent: string | null = null;
     try {
@@ -36,6 +41,7 @@ export const load: PageServerLoad = async ({ params }) => {
             ...doc,
             content: originalContent
         },
-        contents
+        contents,
+        quizzes
     };
 }; 

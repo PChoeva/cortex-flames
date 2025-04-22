@@ -6,7 +6,8 @@
     
     const links = [
         { href: '/', label: 'Upload New', icon: '📄' },
-        { href: '/document', label: 'Documents', icon: '📚' }
+        { href: '/document', label: 'Documents', icon: '📚' },
+        { href: '/quiz', label: 'Quizzes', icon: '🧠' }
     ];
 
     let isMenuOpen = false;
@@ -22,6 +23,19 @@
                 </div>
             </div>
             
+            <!-- Desktop navigation -->
+            <div class="hidden md:flex md:items-center md:space-x-4">
+                {#each links as link}
+                    <a
+                        href={link.href}
+                        class="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors {currentPath === link.href ? 'bg-white/20' : ''}"
+                    >
+                        <span class="mr-2">{link.icon}</span>
+                        {link.label}
+                    </a>
+                {/each}
+            </div>
+
             <!-- Mobile menu button -->
             <button 
                 class="md:hidden rounded-lg p-2 text-white hover:bg-white/10"
@@ -38,40 +52,22 @@
                     </svg>
                 {/if}
             </button>
-
-            <!-- Desktop navigation -->
-            <div class="hidden md:ml-16 md:flex md:gap-2">
-                {#each links as { href, label, icon }}
-                    <a 
-                        {href}
-                        class="flex items-center gap-2 px-4 py-2 rounded-xl
-                            {currentPath === href 
-                                ? 'bg-white text-purple-700 font-medium' 
-                                : 'text-white hover:bg-white/10'}"
-                    >
-                        <span class="text-lg">{icon}</span>
-                        <span class="font-medium whitespace-nowrap">{label}</span>
-                    </a>
-                {/each}
-            </div>
         </div>
 
-        <!-- Mobile navigation -->
+        <!-- Mobile menu -->
         {#if isMenuOpen}
-            <div class="md:hidden py-2 space-y-1" transition:slide>
-                {#each links as { href, label, icon }}
-                    <a 
-                        {href}
-                        class="flex items-center gap-2 px-4 py-3 rounded-xl w-full
-                            {currentPath === href 
-                                ? 'bg-white text-purple-700 font-medium' 
-                                : 'text-white hover:bg-white/10'}"
-                        on:click={() => isMenuOpen = false}
-                    >
-                        <span class="text-lg">{icon}</span>
-                        <span class="font-medium">{label}</span>
-                    </a>
-                {/each}
+            <div class="md:hidden" transition:slide>
+                <div class="px-2 pt-2 pb-3 space-y-1">
+                    {#each links as link}
+                        <a
+                            href={link.href}
+                            class="block px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors {currentPath === link.href ? 'bg-white/20' : ''}"
+                        >
+                            <span class="mr-2">{link.icon}</span>
+                            {link.label}
+                        </a>
+                    {/each}
+                </div>
             </div>
         {/if}
     </div>

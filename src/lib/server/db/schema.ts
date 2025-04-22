@@ -1,6 +1,7 @@
 import { pgTable, text, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { serial } from 'drizzle-orm/pg-core';
 import type { ContentType, ProcessingStatus } from '$lib/constants';
+import { QuestionType } from '$lib/types/quiz';
 
 // Common MIME types we'll handle
 const commonMimeTypes = [
@@ -30,4 +31,26 @@ export const documentContent = pgTable('document_content', {
 	type: text('type').notNull().$type<ContentType>(),
 	content: text('content').notNull(),
 	createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const quiz = pgTable('quiz', {
+	id: serial('id').primaryKey(),
+	documentId: integer('document_id').references(() => document.id).notNull(),
+	title: text('title').notNull().unique(),
+	createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const question = pgTable('question', {
+	id: serial('id').primaryKey(),
+	quizId: integer('quiz_id').references(() => quiz.id).notNull(),
+	question: text('question').notNull(),
+	type: text('type').notNull().$type<QuestionType>(),
+	explanation: text('explanation').notNull(),
+});
+
+export const option = pgTable('option', {
+	id: serial('id').primaryKey(),
+	questionId: integer('question_id').references(() => question.id).notNull(),
+	text: text('text').notNull(),
+	isCorrect: boolean('is_correct').notNull().default(false),
 });

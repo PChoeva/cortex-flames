@@ -61,12 +61,13 @@ export async function generateDocumentQuiz(documentId: number) {
             process.stdout.write('.');
         }, 1000);
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-4",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are a quiz generator that creates comprehensive quizzes based on document content.
+        const response = await openai.chat.completions.create(
+            {
+                model: "gpt-4",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are a quiz generator that creates comprehensive quizzes based on document content.
 Generate a mix of different question types that thoroughly test understanding of the content.
 
 Create at least 3 questions, with a mix of:
@@ -100,14 +101,18 @@ You must respond with a valid JSON object and nothing else. Format your response
         }
     ]
 }`
-                },
-                {
-                    role: "user",
-                    content: `Generate a quiz based on this text:\n\n${content}`
-                }
-            ],
-            temperature: 0.3
-        });
+                    },
+                    {
+                        role: "user",
+                        content: `Generate a quiz based on this text:\n\n${content}`
+                    }
+                ],
+                temperature: 0.3,
+            },
+            {
+                timeout: 55000 // 55 seconds in the options parameter
+            }
+        );
 
         clearInterval(progressInterval);
         process.stdout.write('\n');

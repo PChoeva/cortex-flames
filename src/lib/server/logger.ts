@@ -1,12 +1,24 @@
 import pino from 'pino';
 
 export const logger = pino({
-    level: 'info'
+    level: 'info',
+    formatters: {
+        level: (label) => {
+            return { level: label };
+        }
+    },
+    timestamp: () => `,"time":"${new Date().toISOString()}"`,
+    // This ensures logs are formatted in a way Vercel can parse
+    transport: {
+        target: 'pino/file',
+        options: {
+            destination: 1 // stdout
+        }
+    }
 });
 
-// Create namespaced loggers for different parts of the application
-export const quizLogger = logger.child({ module: 'quiz' });
-export const apiLogger = logger.child({ module: 'api' });
-export const dbLogger = logger.child({ module: 'database' });
-export const documentLogger = logger.child({ module: 'document' });
-export const processingLogger = logger.child({ module: 'processing' }); 
+// Export named loggers that all use the same instance
+export const apiLogger = logger.child({ component: 'api' });
+export const dbLogger = logger.child({ component: 'db' });
+export const quizLogger = logger.child({ component: 'quiz' });
+export const processingLogger = logger.child({ component: 'processing' }); 

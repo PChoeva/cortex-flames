@@ -70,7 +70,6 @@
 		"@vercel/blob": "^1.0.0",
 		"drizzle-orm": "^0.40.0",
 		"openai": "^4.94.0",
-		"pino": "^9.6.0",
-		"pino-pretty": "^13.0.0"
+		"pino": "^9.6.0"
 	}
 }

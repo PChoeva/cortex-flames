@@ -21,9 +21,14 @@ export const load: PageServerLoad = async ({ params }) => {
         .where(eq(documentContent.documentId, documentId));
 
     // Get all quizzes for this document
-    const quizzes = await db.select()
-        .from(quiz)
-        .where(eq(quiz.documentId, documentId));
+    const quizzes = await db.select({
+        id: quiz.id,
+        title: quiz.title,
+        documentId: quiz.documentId,
+        createdAt: quiz.createdAt
+    })
+    .from(quiz)
+    .where(eq(quiz.documentId, documentId));
 
     // Fetch the original file content
     let originalContent: string | null = null;

@@ -3,6 +3,7 @@
 	import '$lib/components/styles/shared.css';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 </script>
 
 <div class="min-h-screen bg-gradient-to-b from-orange-50 to-purple-50">
@@ -27,6 +28,7 @@
 			<slot />
 		</div>
 	</main>
+	<ConfirmModal />
 </div>
 
 <style>

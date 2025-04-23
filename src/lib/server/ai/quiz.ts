@@ -124,10 +124,19 @@ You must respond with a valid JSON object and nothing else. Format your response
             const quizData = JSON.parse(quizContent) as { questions: QuizQuestion[] };
             logger.info({ questionCount: quizData.questions.length }, 'Parsed questions');
 
+            const existingQuizzes = await db.select()
+                .from(quiz)
+                .where(eq(quiz.documentId, documentId));
+
+            const quizNumber = existingQuizzes.length + 1;
+            const quizTitle = existingQuizzes.length > 0 
+                ? `Quiz ${quizNumber} for ${doc.filename}`
+                : `Quiz for ${doc.filename}`;
+
             const [newQuiz] = await db.insert(quiz)
                 .values({
                     documentId,
-                    title: `Quiz for ${doc.filename}`
+                    title: quizTitle
                 })
                 .returning();
 

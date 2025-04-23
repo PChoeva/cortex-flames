@@ -2,6 +2,7 @@
     import type { PageData } from './$types';
     import type { ContentType } from '$lib/constants';
     import { invalidateAll } from '$app/navigation';
+    import { modalDialog } from '$lib/stores/modal';
 
     export let data: PageData;
     let { document, contents } = data;
@@ -92,6 +93,22 @@
         } finally {
             processingQuiz = false;
         }
+    }
+
+    async function handleQuizGeneration() {
+        if (data.quizzes.length > 0) {
+            const confirmed = await modalDialog.show({
+                title: 'Generate Another Quiz?',
+                message: `There ${data.quizzes.length === 1 ? 'is' : 'are'} already ${data.quizzes.length} ${
+                    data.quizzes.length === 1 ? 'quiz' : 'quizzes'
+                } for this document. Would you like to generate another one?`,
+                confirmText: 'Generate',
+                cancelText: 'Cancel',
+                confirmColor: 'blue'
+            });
+            if (!confirmed) return;
+        }
+        await generateQuiz();
     }
 </script>
 
@@ -273,21 +290,58 @@
 
                 <!-- Quiz section with generate button -->
                 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div class="border-b border-gray-100 p-4 flex justify-between items-center">
-                        <h2 class="text-lg font-medium text-gray-800">Quiz</h2>
-                        <button 
-                            class="text-sm px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-2"
-                            on:click={generateQuiz}
-                            disabled={processingQuiz}
-                        >
-                            {#if processingQuiz}
-                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            {/if}
-                            {processingQuiz ? 'Generating...' : 'Generate Quiz'}
-                        </button>
+                    <div class="p-4">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 class="text-lg font-medium text-gray-800">Quizzes</h2>
+                                <p class="text-sm text-gray-500 mt-1">Test your knowledge of the document</p>
+                            </div>
+                            <button 
+                                class="px-4 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-2 font-medium"
+                                on:click={handleQuizGeneration}
+                                disabled={processingQuiz}
+                            >
+                                {#if processingQuiz}
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                {:else}
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                {/if}
+                                {processingQuiz ? 'Generating...' : 'New Quiz'}
+                            </button>
+                        </div>
+
+                        {#if data.quizzes.length > 0}
+                            <div class="space-y-3">
+                                {#each data.quizzes as quiz}
+                                    <a 
+                                        href={`/quiz/${quiz.id}`}
+                                        class="block p-4 rounded-lg hover:bg-gray-50 transition-all duration-200 border border-gray-100 hover:border-blue-200 hover:shadow-sm"
+                                    >
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h3 class="text-gray-900 font-medium">{quiz.title}</h3>
+                                                <p class="text-sm text-gray-500 mt-1">
+                                                    Created {new Date(quiz.createdAt!).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <span class="text-blue-600 text-sm font-medium">Take Quiz →</span>
+                                        </div>
+                                    </a>
+                                {/each}
+                            </div>
+                        {:else}
+                            <div class="text-center py-8 px-4">
+                                <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center">
+                                    <span class="text-2xl">📝</span>
+                                </div>
+                                <p class="text-gray-500">No quizzes generated yet.</p>
+                            </div>
+                        {/if}
                     </div>
                 </div>
             </div>

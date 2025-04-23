@@ -1,12 +1,9 @@
 <script lang="ts">
 	import type { Document } from '$lib/types';
 	import { formatFileSize, formatDate } from '$lib/utils';
-	import DeleteModal from './DeleteModal.svelte';
+	import { modalDialog } from '$lib/stores/modal';
 	
 	export let documents: Document[];
-
-	let showDeleteModal = false;
-	let documentToDelete: Document | null = null;
 
 	async function deleteDocument(document: Document) {
 		try {
@@ -23,25 +20,20 @@
 		} catch (e) {
 			console.error('Delete failed:', e);
 			alert('Failed to delete document');
-		} finally {
-			showDeleteModal = false;
-			documentToDelete = null;
 		}
 	}
 
-	function handleDeleteClick(document: Document) {
-		documentToDelete = document;
-		showDeleteModal = true;
-	}
+	async function handleDeleteClick(document: Document) {
+		const confirmed = await modalDialog.show({
+			title: 'Delete Document',
+			message: `Are you sure you want to delete "${document.filename}"? This action cannot be undone.`,
+			confirmText: 'Delete',
+			cancelText: 'Cancel',
+			confirmColor: 'red'
+		});
 
-	function cancelDelete() {
-		showDeleteModal = false;
-		documentToDelete = null;
-	}
-
-	function confirmDelete() {
-		if (documentToDelete) {
-			deleteDocument(documentToDelete);
+		if (confirmed) {
+			await deleteDocument(document);
 		}
 	}
 </script>
@@ -97,13 +89,3 @@
 		</div>
 	{/each}
 </div>
-
-<DeleteModal 
-	show={showDeleteModal}
-	filename={documentToDelete?.filename ?? ''}
-	onConfirm={() => documentToDelete && deleteDocument(documentToDelete)}
-	onCancel={() => {
-		showDeleteModal = false;
-		documentToDelete = null;
-	}}
-/>

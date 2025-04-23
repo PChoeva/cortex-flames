@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/document/[id]/quiz": {
+    "src/routes/api/document/[id]/quiz/+server.ts": {
       "maxDuration": 60
     }
   }

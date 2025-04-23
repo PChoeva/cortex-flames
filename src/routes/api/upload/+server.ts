@@ -5,6 +5,7 @@ import { uploadFile } from '$lib/server/storage/blob';
 import { EXTENSION_TO_MIME } from '$lib/constants';
 import type { RequestHandler } from '@sveltejs/kit';
 import { and, eq, or } from 'drizzle-orm';
+import { documentLogger as logger } from '$lib/server/logger';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -12,13 +13,22 @@ export const POST: RequestHandler = async ({ request }) => {
 		const file = formData.get('document');
 
 		if (!file || !(file instanceof File)) {
+			logger.warn('No file uploaded');
 			throw error(400, 'No file uploaded');
 		}
 
 		const ext = file.name.match(/\.[^/.]+$/)?.[0]?.toLowerCase() || '';
 		const mimeType = EXTENSION_TO_MIME[ext];
 
+		logger.info({
+			filename: file.name,
+			extension: ext,
+			mimeType,
+			size: file.size
+		}, 'Processing file upload');
+
 		if (!mimeType) {
+			logger.warn({ extension: ext }, 'Unsupported file type');
 			throw error(400, 'Unsupported file type');
 		}
 
@@ -40,7 +50,14 @@ export const POST: RequestHandler = async ({ request }) => {
 			? `${baseName} (${existingFiles.length})${ext}`
 			: file.name;
 
+		logger.debug({ 
+			originalName: file.name,
+			finalName,
+			existingCount: existingFiles.length 
+		}, 'Resolved file name');
+
 		const url = await uploadFile(file, finalName);
+		logger.info({ url, finalName }, 'File uploaded to storage');
 
 		const [newDocument] = await db.insert(document)
 			.values({
@@ -54,9 +71,17 @@ export const POST: RequestHandler = async ({ request }) => {
 			})
 			.returning();
 
+		logger.info({ 
+			documentId: newDocument.id,
+			filename: newDocument.filename 
+		}, 'Document created in database');
+
 		return json({ success: true, document: newDocument });
-	} catch (e) {
-		console.error('Upload error:', e);
+	} catch (e: any) {
+		logger.error({ 
+			err: e,
+			stack: e.stack 
+		}, 'Upload failed');
 		throw error(500, 'Failed to process upload');
 	}
 }

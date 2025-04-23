@@ -5,28 +5,31 @@ import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import type { ContentType } from '$lib/constants';
 import { processDocument } from '$lib/server/ai/process';
+import { processingLogger as logger } from '$lib/server/logger';
 
 export const POST: RequestHandler = async ({ params, request }) => {
     try {
         const { type, isRetry } = await request.json() as { type: ContentType; isRetry?: boolean };
         const documentId = parseInt(params.id);
 
-        console.log(`Starting processing for document ${documentId}, type: ${type}, retry: ${isRetry}`);
+        logger.info({ documentId, type, isRetry }, 'Starting document processing');
 
         const [doc] = await db.select()
             .from(document)
             .where(eq(document.id, documentId));
 
         if (!doc) {
+            logger.error({ documentId }, 'Document not found');
             throw error(404, 'Document not found');
         }
 
         if (doc.processingStatus === 'processing' && !isRetry) {
+            logger.warn({ documentId, status: doc.processingStatus }, 'Document already being processed');
             throw error(400, 'Document is already being processed');
         }
 
-        // If it's a retry, delete the existing failed content
         if (isRetry) {
+            logger.info({ documentId, type }, 'Retrying processing - deleting existing content');
             await db.delete(documentContent)
                 .where(
                     and(
@@ -36,7 +39,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
                 );
         }
 
-        // Update document status to processing
+        logger.info({ documentId }, 'Updating document status to processing');
         await db.update(document)
             .set({ processingStatus: 'processing' })
             .where(eq(document.id, documentId));
@@ -67,8 +70,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
         });
 
         return json({ success: true, message: 'Processing started' });
-    } catch (e) {
-        console.error('Processing request error:', e);
-        throw error(500, { message: e instanceof Error ? e.message : 'Failed to process document' });
+    } catch (e: any) {
+        logger.error({ 
+            err: e,
+            documentId: params.id,
+            stack: e.stack
+        }, 'Document processing failed');
+        throw error(500, 'Failed to process document');
     }
 }; 

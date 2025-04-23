@@ -4,40 +4,59 @@ import { eq, and } from 'drizzle-orm';
 import { openai } from './openai';
 import type { QuizQuestion } from '$lib/types/quiz';
 import { QuestionType } from '$lib/types/quiz';
+import { quizLogger as logger } from '$lib/server/logger';
 
 export async function generateDocumentQuiz(documentId: number) {
+    logger.info({ documentId }, 'Starting quiz generation');
     try {
         const [doc] = await db.select()
             .from(document)
             .where(eq(document.id, documentId));
 
         if (!doc) {
+            logger.error({ documentId }, 'Document not found');
             throw new Error('Document not found');
         }
 
-        // Get content either directly from URL or from processed text
-        let content: string;
-        if (doc.mimeType === 'text/plain') {
-            const response = await fetch(doc.url);
-            content = await response.text();
-        } else {
-            // Get the document content from processed text
-            const [rawText] = await db.select()
-                .from(documentContent)
-                .where(
-                    and(
-                        eq(documentContent.documentId, documentId),
-                        eq(documentContent.type, 'raw_text')
-                    )
-                );
+        logger.info({ 
+            documentId, 
+            filename: doc.filename, 
+            mimeType: doc.mimeType 
+        }, 'Found document');
 
-            if (!rawText) {
-                throw new Error('No raw text available for quiz generation');
+        let content: string;
+        try {
+            if (doc.mimeType === 'text/plain') {
+                logger.debug({ url: doc.url }, 'Fetching content from URL');
+                const response = await fetch(doc.url);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+                }
+                content = await response.text();
+            } else {
+                logger.debug({ documentId }, 'Fetching content from processed text');
+                const [rawText] = await db.select()
+                    .from(documentContent)
+                    .where(
+                        and(
+                            eq(documentContent.documentId, documentId),
+                            eq(documentContent.type, 'raw_text')
+                        )
+                    );
+
+                if (!rawText) {
+                    logger.error({ documentId }, 'No raw text found in database');
+                    throw new Error('No raw text available for quiz generation');
+                }
+                content = rawText.content;
             }
-            content = rawText.content;
+            logger.debug({ contentLength: content.length }, 'Content retrieved');
+        } catch (e) {
+            logger.error({ err: e, documentId }, 'Failed to get content');
+            throw e;
         }
 
-        process.stdout.write('Generating quiz');
+        logger.info('Calling OpenAI API');
         const progressInterval = setInterval(() => {
             process.stdout.write('.');
         }, 1000);
@@ -98,40 +117,65 @@ You must respond with a valid JSON object and nothing else. Format your response
             throw new Error('No quiz content received from OpenAI');
         }
 
-        const quizData = JSON.parse(quizContent) as { questions: QuizQuestion[] };
+        logger.debug('Received OpenAI response');
 
-        // Create the quiz
-        const [newQuiz] = await db.insert(quiz)
-            .values({
-                documentId,
-                title: `Quiz for ${doc.filename}`
-            })
-            .returning();
+        try {
+            logger.debug('Parsing OpenAI response');
+            const quizData = JSON.parse(quizContent) as { questions: QuizQuestion[] };
+            logger.info({ questionCount: quizData.questions.length }, 'Parsed questions');
 
-        // Create questions and options
-        for (const q of quizData.questions) {
-            const [newQuestion] = await db.insert(question)
+            const [newQuiz] = await db.insert(quiz)
                 .values({
-                    quizId: newQuiz.id,
-                    question: q.question,
-                    type: q.type as QuestionType,
-                    explanation: q.explanation
+                    documentId,
+                    title: `Quiz for ${doc.filename}`
                 })
                 .returning();
 
-            // Create options for this question
-            await db.insert(option)
-                .values(q.options.map((text, index) => ({
-                    questionId: newQuestion.id,
-                    text,
-                    isCorrect: q.correctAnswers.includes(index)
-                })));
+            logger.info({ quizId: newQuiz.id }, 'Created quiz');
+
+            for (const q of quizData.questions) {
+                logger.debug({ 
+                    quizId: newQuiz.id,
+                    questionPreview: q.question.substring(0, 50) 
+                }, 'Creating question');
+                
+                const [newQuestion] = await db.insert(question)
+                    .values({
+                        quizId: newQuiz.id,
+                        question: q.question,
+                        type: q.type as QuestionType,
+                        explanation: q.explanation
+                    })
+                    .returning();
+
+                // Create options for this question
+                await db.insert(option)
+                    .values(q.options.map((text, index) => ({
+                        questionId: newQuestion.id,
+                        text,
+                        isCorrect: q.correctAnswers.includes(index)
+                    })));
+            }
+
+            logger.info({ 
+                documentId, 
+                quizId: newQuiz.id 
+            }, 'Quiz generation completed successfully');
+            return quizData.questions;
+
+        } catch (parseError) {
+            logger.error({ 
+                err: parseError, 
+                rawContent: quizContent 
+            }, 'Failed to parse or store quiz');
+            throw parseError;
         }
 
-        return quizData.questions;
-
     } catch (error) {
-        console.error('Quiz generation error:', error);
+        logger.error({ 
+            err: error, 
+            documentId 
+        }, 'Fatal error in quiz generation');
         throw error;
     }
 } 

@@ -76,22 +76,28 @@
     }
 
     async function generateQuiz() {
-        try {
-            processingQuiz = true;
-            const response = await fetch(`/api/document/${document.id}/quiz`, {
-                method: 'POST'
+    try {
+        processingQuiz = true;
+        const response = await fetch(`/api/document/${document.id}/quiz`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Quiz generation failed:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorData
             });
-            
-            if (!response.ok) {
-                throw new Error('Failed to generate quiz');
-            }
+            throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
+        }
 
-            await invalidateAll();
-        } catch (e) {
-            console.error('Quiz generation error:', e);
-            error = 'Failed to generate quiz';
-        } finally {
-            processingQuiz = false;
+        await invalidateAll();
+    } catch (e) {
+        console.error('Quiz generation error:', e);
+        error = e instanceof Error ? e.message : 'Failed to generate quiz';
+    } finally {
+        processingQuiz = false;
         }
     }
 

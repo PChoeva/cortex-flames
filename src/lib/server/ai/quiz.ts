@@ -167,8 +167,9 @@ You must respond with a valid JSON object and nothing else. Format your response
             }
 
             logger.info({ 
-                documentId, 
-                quizId: newQuiz.id 
+                documentId,
+                quizId: newQuiz.id,
+                questionCount: quizData.questions.length
             }, 'Quiz generation completed successfully');
             return quizData.questions;
 
@@ -180,10 +181,13 @@ You must respond with a valid JSON object and nothing else. Format your response
             throw parseError;
         }
 
-    } catch (error) {
+    } catch (error: any) {
         logger.error({ 
-            err: error, 
-            documentId 
+            err: error,
+            documentId,
+            stack: error.stack,
+            message: error.message,
+            name: error.name
         }, 'Fatal error in quiz generation');
         throw error;
     }

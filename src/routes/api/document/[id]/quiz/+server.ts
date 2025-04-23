@@ -9,14 +9,21 @@ export const POST: RequestHandler = async ({ params }) => {
     
     try {
         const quiz = await generateDocumentQuiz(documentId);
-        logger.info({ documentId }, 'Quiz generation successful');
+        logger.info({ documentId }, 'Quiz generation successful'); // Removed quizId since quiz is an array
         return json({ success: true, quiz });
     } catch (e: any) {
         logger.error({
             err: e,
             documentId,
-            stack: e.stack
-        }, 'Quiz generation failed');
-        throw error(500, 'Failed to generate quiz');
+            stack: e.stack,
+            message: e.message,
+            name: e.name,
+            // Add any additional context that might be helpful
+            context: {
+                params,
+                timestamp: new Date().toISOString()
+            }
+        }, 'Quiz generation failed with detailed error');
+        throw error(500, new Error('Failed to generate quiz'));
     }
 }; 

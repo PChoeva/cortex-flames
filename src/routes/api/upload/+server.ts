@@ -5,7 +5,7 @@ import { uploadFile } from '$lib/server/storage/blob';
 import { EXTENSION_TO_MIME } from '$lib/constants';
 import type { RequestHandler } from '@sveltejs/kit';
 import { and, eq, or } from 'drizzle-orm';
-import { documentLogger as logger } from '$lib/server/logger';
+import { processingLogger as logger } from '$lib/server/logger';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {

@@ -9,7 +9,7 @@ export const POST: RequestHandler = async ({ params }) => {
     
     try {
         const quiz = await generateDocumentQuiz(documentId);
-        logger.info({ documentId }, 'Quiz generation successful'); // Removed quizId since quiz is an array
+        logger.info({ documentId }, 'Quiz generation successful');
         return json({ success: true, quiz });
     } catch (e: any) {
         logger.error({
@@ -18,12 +18,17 @@ export const POST: RequestHandler = async ({ params }) => {
             stack: e.stack,
             message: e.message,
             name: e.name,
-            // Add any additional context that might be helpful
             context: {
                 params,
                 timestamp: new Date().toISOString()
             }
         }, 'Quiz generation failed with detailed error');
-        throw error(500, new Error('Failed to generate quiz'));
+        
+        // Check if it's a timeout error
+        if (e.code === 'ETIMEDOUT' || e.message?.includes('timeout')) {
+            throw error(504, 'Quiz generation timed out. Please try again.');
+        }
+        
+        throw error(500, 'Failed to generate quiz');
     }
 }; 

@@ -6,8 +6,8 @@ import type { QuizQuestion } from '$lib/types/quiz';
 import { QuestionType } from '$lib/types/quiz';
 import { quizLogger as logger } from '$lib/server/logger';
 
-export async function generateDocumentQuiz(documentId: number) {
-    logger.info({ documentId }, 'Starting quiz generation');
+export async function generateDocumentQuiz(documentId: number, quizId: number) {
+    logger.info({ documentId, quizId }, 'Starting quiz generation');
     try {
         const [doc] = await db.select()
             .from(document)
@@ -108,9 +108,6 @@ You must respond with a valid JSON object and nothing else. Format your response
                     }
                 ],
                 temperature: 0.3,
-            },
-            {
-                timeout: 55000 // 55 seconds in the options parameter
             }
         );
 
@@ -122,40 +119,40 @@ You must respond with a valid JSON object and nothing else. Format your response
             throw new Error('No quiz content received from OpenAI');
         }
 
-        logger.debug('Received OpenAI response');
+        const quizData = JSON.parse(quizContent) as { questions: QuizQuestion[] };
+        
+        const existingQuizzes = await db.select()
+            .from(quiz)
+            .where(eq(quiz.documentId, documentId));
+
+        const quizNumber = existingQuizzes.length;
+        const quizTitle = quizNumber > 1 
+            ? `Quiz ${quizNumber} for ${doc.filename}`
+            : `Quiz for ${doc.filename}`;
+
+        // Update existing quiz instead of creating new one
+        await db.update(quiz)
+            .set({ 
+                title: quizTitle,
+                status: 'completed'
+            })
+            .where(eq(quiz.id, quizId));
+
+        logger.info({ quizId }, 'Updated quiz title');
 
         try {
             logger.debug('Parsing OpenAI response');
-            const quizData = JSON.parse(quizContent) as { questions: QuizQuestion[] };
             logger.info({ questionCount: quizData.questions.length }, 'Parsed questions');
-
-            const existingQuizzes = await db.select()
-                .from(quiz)
-                .where(eq(quiz.documentId, documentId));
-
-            const quizNumber = existingQuizzes.length + 1;
-            const quizTitle = existingQuizzes.length > 0 
-                ? `Quiz ${quizNumber} for ${doc.filename}`
-                : `Quiz for ${doc.filename}`;
-
-            const [newQuiz] = await db.insert(quiz)
-                .values({
-                    documentId,
-                    title: quizTitle
-                })
-                .returning();
-
-            logger.info({ quizId: newQuiz.id }, 'Created quiz');
 
             for (const q of quizData.questions) {
                 logger.debug({ 
-                    quizId: newQuiz.id,
+                    quizId: quizId,
                     questionPreview: q.question.substring(0, 50) 
                 }, 'Creating question');
                 
                 const [newQuestion] = await db.insert(question)
                     .values({
-                        quizId: newQuiz.id,
+                        quizId: quizId,
                         question: q.question,
                         type: q.type as QuestionType,
                         explanation: q.explanation
@@ -171,11 +168,7 @@ You must respond with a valid JSON object and nothing else. Format your response
                     })));
             }
 
-            logger.info({ 
-                documentId,
-                quizId: newQuiz.id,
-                questionCount: quizData.questions.length
-            }, 'Quiz generation completed successfully');
+            logger.info({ documentId, quizId }, 'Quiz generation completed successfully');
             return quizData.questions;
 
         } catch (parseError) {
@@ -187,13 +180,7 @@ You must respond with a valid JSON object and nothing else. Format your response
         }
 
     } catch (error: any) {
-        logger.error({ 
-            err: error,
-            documentId,
-            stack: error.stack,
-            message: error.message,
-            name: error.name
-        }, 'Fatal error in quiz generation');
+        logger.error({ err: error, documentId, quizId }, 'Quiz generation failed');
         throw error;
     }
 } 

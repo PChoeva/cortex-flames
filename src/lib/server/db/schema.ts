@@ -36,7 +36,8 @@ export const documentContent = pgTable('document_content', {
 export const quiz = pgTable('quiz', {
 	id: serial('id').primaryKey(),
 	documentId: integer('document_id').references(() => document.id).notNull(),
-	title: text('title').notNull().unique(),
+	title: text('title').notNull(),
+	status: text('status').$type<'processing' | 'completed' | 'failed'>().notNull().default('processing'),
 	createdAt: timestamp('created_at').defaultNow(),
 });
 

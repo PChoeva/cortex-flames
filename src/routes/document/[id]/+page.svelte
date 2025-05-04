@@ -75,46 +75,37 @@
         }
     }
 
-    async function generateQuiz() {
-    try {
-        processingQuiz = true;
-        const response = await fetch(`/api/document/${document.id}/quiz`, {
-            method: 'POST'
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('Quiz generation failed:', {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorData
-            });
-            throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
-        }
-
-        await invalidateAll();
-    } catch (e) {
-        console.error('Quiz generation error:', e);
-        error = e instanceof Error ? e.message : 'Failed to generate quiz';
-    } finally {
-        processingQuiz = false;
-        }
-    }
-
     async function handleQuizGeneration() {
-        if (data.quizzes.length > 0) {
-            const confirmed = await modalDialog.show({
-                title: 'Generate Another Quiz?',
-                message: `There ${data.quizzes.length === 1 ? 'is' : 'are'} already ${data.quizzes.length} ${
-                    data.quizzes.length === 1 ? 'quiz' : 'quizzes'
-                } for this document. Would you like to generate another one?`,
-                confirmText: 'Generate',
-                cancelText: 'Cancel',
-                confirmColor: 'blue'
+        try {
+            processingQuiz = true;
+            const response = await fetch(`/api/document/${document.id}/quiz`, {
+                method: 'POST'
             });
-            if (!confirmed) return;
+            
+            if (!response.ok) {
+                throw new Error(`Failed to start quiz generation: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Poll for completion
+            while (true) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const statusResponse = await fetch(`/api/quiz/${data.quizId}/status`);
+                const statusData = await statusResponse.json();
+                
+                if (statusData.status === 'completed' || statusData.status === 'failed') {
+                    break;
+                }
+            }
+
+            await invalidateAll();
+        } catch (e) {
+            console.error('Quiz generation error:', e);
+            error = e instanceof Error ? e.message : 'Failed to generate quiz';
+        } finally {
+            processingQuiz = false;
         }
-        await generateQuiz();
     }
 </script>
 

@@ -7,13 +7,18 @@ import { QuestionType } from '$lib/types/quiz';
 import { quizLogger as logger } from '$lib/server/logger';
 
 export async function generateDocumentQuiz(documentId: number, quizId: number) {
+    console.log(`Starting quiz generation for document ${documentId}, quiz ${quizId}`);
     logger.info({ documentId, quizId }, 'Starting quiz generation');
     try {
         const [doc] = await db.select()
             .from(document)
             .where(eq(document.id, documentId));
 
+        console.log(`Retrieved document: ${doc?.filename}`);
+        logger.info({ doc }, 'Retrieved document');
+
         if (!doc) {
+            console.error(`Document ${documentId} not found`);
             logger.error({ documentId }, 'Document not found');
             throw new Error('Document not found');
         }
@@ -56,7 +61,7 @@ export async function generateDocumentQuiz(documentId: number, quizId: number) {
             throw e;
         }
 
-        logger.info('Calling OpenAI API');
+        console.log('Calling OpenAI API');
         const progressInterval = setInterval(() => {
             process.stdout.write('.');
         }, 1000);
@@ -114,6 +119,8 @@ You must respond with a valid JSON object and nothing else. Format your response
         clearInterval(progressInterval);
         process.stdout.write('\n');
 
+        console.log('OpenAI API call completed');
+
         const quizContent = response.choices[0].message.content;
         if (!quizContent) {
             throw new Error('No quiz content received from OpenAI');
@@ -138,7 +145,7 @@ You must respond with a valid JSON object and nothing else. Format your response
             })
             .where(eq(quiz.id, quizId));
 
-        logger.info({ quizId }, 'Updated quiz title');
+        console.log(`Updated quiz ${quizId} status to completed`);
 
         try {
             logger.debug('Parsing OpenAI response');
@@ -180,7 +187,27 @@ You must respond with a valid JSON object and nothing else. Format your response
         }
 
     } catch (error: any) {
-        logger.error({ err: error, documentId, quizId }, 'Quiz generation failed');
+        console.error('Quiz generation failed:', error);
+        logger.error({ 
+            err: error,
+            documentId,
+            quizId,
+            stack: error instanceof Error ? error.stack : undefined
+        }, 'Quiz generation failed');
+        
+        // Make sure we update the status to failed
+        await db.update(quiz)
+            .set({ 
+                status: 'failed',
+                title: 'Quiz Generation Failed'
+            })
+            .where(eq(quiz.id, quizId))
+            .execute()
+            .catch(e => {
+                console.error('Failed to update quiz status to failed:', e);
+                logger.error(e, 'Failed to update quiz status to failed');
+            });
+
         throw error;
     }
 } 

@@ -20,7 +20,7 @@ export async function generateSummary(text: string): Promise<string> {
         }, 1000);
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4",
             messages: [
                 {
                     role: "system",
@@ -72,7 +72,7 @@ Keep the overview factual and objective, maintaining the document's original ter
 export async function testOpenAI(): Promise<boolean> {
     try {
         const response = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4",
             messages: [
                 {
                     role: "user",

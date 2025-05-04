@@ -50,7 +50,16 @@ export async function processDocument(
             }
         }
 
-        // Simple insert of the processed content
+        // Delete existing content if it exists
+        await db.delete(documentContent)
+            .where(
+                and(
+                    eq(documentContent.documentId, doc.id),
+                    eq(documentContent.type, type)
+                )
+            );
+
+        // Store the new content
         await db.insert(documentContent)
             .values({
                 documentId: doc.id,
@@ -63,8 +72,27 @@ export async function processDocument(
             .set({ processingStatus: 'completed' })
             .where(eq(document.id, doc.id));
 
+        return content;
     } catch (error) {
         console.error('Processing error:', error);
+        
+        // Update status to failed on error
+        await db.update(document)
+            .set({ processingStatus: 'failed' })
+            .where(eq(document.id, doc.id));
+
+        // Insert failed status content
+        await db.insert(documentContent)
+            .values({
+                documentId: doc.id,
+                type,
+                content: 'FAILED'
+            })
+            .onConflictDoUpdate({
+                target: [documentContent.documentId, documentContent.type],
+                set: { content: 'FAILED' }
+            });
+
         throw error;
     }
 } 

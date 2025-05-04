@@ -31,16 +31,33 @@
         }
     }
 
+    async function pollForCompletion<T>(
+        checkFn: () => Promise<T>,
+        isComplete: (result: T) => boolean,
+        interval = 1000,
+        timeout = 120000 // 2 minute timeout
+    ): Promise<T> {
+        const startTime = Date.now();
+        
+        while (Date.now() - startTime < timeout) {
+            await new Promise(resolve => setTimeout(resolve, interval));
+            const result = await checkFn();
+            
+            if (isComplete(result)) {
+                return result;
+            }
+        }
+        
+        throw new Error('Operation timed out');
+    }
+
     async function processDocument(type: ContentType) {
-        if (type === 'raw_text') {
-            processingText = true;
-        } else if (type === 'summary') {
+        if (type === 'summary') {
             processingSummary = true;
         }
         
         try {
             error = null;
-
             const response = await fetch(`/api/document/${document.id}/process`, {
                 method: 'POST',
                 headers: {
@@ -50,27 +67,27 @@
             });
 
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to process document');
+                throw new Error('Failed to process document');
             }
 
-            // Poll for completion
-            while (processingText || processingSummary) {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between checks
-                const isComplete = await checkProcessingStatus(document.id);
-                if (isComplete) {
-                    break;
-                }
-            }
+            await pollForCompletion(
+                async () => {
+                    const statusResponse = await fetch(`/api/document/${document.id}/status`);
+                    return statusResponse.json();
+                },
+                (statusData) => statusData.status === 'completed'
+            );
 
-            // Refresh the data once processing is complete
-            await invalidateAll();
+            // Force a page reload to get fresh data
+            window.location.reload();
             
+            // Or alternatively, use goto with a cache-busting parameter
+            // await goto(`/document/${document.id}?t=${Date.now()}`, { invalidateAll: true });
+
         } catch (e) {
             console.error('Processing error:', e);
             error = e instanceof Error ? e.message : 'Failed to process document';
         } finally {
-            processingText = false;
             processingSummary = false;
         }
     }
@@ -88,16 +105,13 @@
 
             const data = await response.json();
             
-            // Poll for completion
-            while (true) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const statusResponse = await fetch(`/api/quiz/${data.quizId}/status`);
-                const statusData = await statusResponse.json();
-                
-                if (statusData.status === 'completed' || statusData.status === 'failed') {
-                    break;
-                }
-            }
+            await pollForCompletion(
+                async () => {
+                    const statusResponse = await fetch(`/api/quiz/${data.quizId}/status`);
+                    return statusResponse.json();
+                },
+                (statusData) => statusData.status === 'completed' || statusData.status === 'failed'
+            );
 
             await invalidateAll();
         } catch (e) {
@@ -115,24 +129,6 @@
         <div class="bg-white rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-2xl font-semibold text-gray-800">{document.filename}</h1>
-                
-                <!-- Status Badge with Spinner -->
-                {#if document.processingStatus}
-                    <div class="flex items-center gap-2">
-                        {#if document.processingStatus === 'processing'}
-                            <svg class="animate-spin h-5 w-5 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        {/if}
-                        <span class={`px-3 py-1 rounded-full text-sm font-medium
-                            ${document.processingStatus === 'completed' ? 'bg-green-100 text-green-800' : 
-                            document.processingStatus === 'failed' ? 'bg-red-100 text-red-800' : 
-                            'bg-yellow-100 text-yellow-800'}`}>
-                            {document.processingStatus}
-                        </span>
-                    </div>
-                {/if}
             </div>
 
             <!-- Error Message -->
@@ -170,37 +166,6 @@
                         {/if}
                     </div>
                 {/if}
-                
-                <div class="flex items-center gap-3">
-                    {#if document.mimeType !== 'text/plain'}
-                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-semibold">2</span>
-                    {/if}
-                    <button
-                        class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 
-                               disabled:opacity-50 transition-colors duration-200 flex items-center gap-2
-                               {document.mimeType !== 'text/plain' ? 'flex-1' : 'w-auto'}"
-                        on:click={() => processDocument('summary')}
-                        disabled={processingSummary || document.processingStatus === 'processing' || 
-                                 (document.mimeType !== 'text/plain' && !getContent('raw_text'))}>
-                        {#if processingSummary && (document.mimeType !== 'text/plain' || !getContent('raw_text'))}
-                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        {:else}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                      d="M4 6h16M4 12h16m-7 6h7" />
-                            </svg>
-                        {/if}
-                        Generate Overview
-                    </button>
-                    {#if !getContent('raw_text') && document.mimeType !== 'text/plain'}
-                        <div class="text-sm text-gray-500 italic">
-                            Extract text first
-                        </div>
-                    {/if}
-                </div>
             </div>
         </div>
 
@@ -243,13 +208,49 @@
                     </div>
                 {/if}
 
-                <!-- Overview section with retry button -->
-                {#if getContent('summary')}
-                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div class="border-b border-gray-100 p-4 flex justify-between items-center">
+                <!-- Overview section -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="border-b border-gray-100 p-4 flex justify-between items-center">
+                        <div>
                             <h2 class="text-lg font-medium text-gray-800">Overview</h2>
+                            <p class="text-sm text-gray-500 mt-1">AI-generated summary of the document</p>
+                        </div>
+                        <button 
+                            class="text-sm px-3 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-2"
+                            on:click={() => processDocument('summary')}
+                            disabled={processingSummary || document.processingStatus === 'processing' || 
+                                     (document.mimeType !== 'text/plain' && !getContent('raw_text'))}
+                        >
+                            {#if processingSummary}
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            {:else}
+                                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                                </svg>
+                            {/if}
+                            {#if getContent('summary')}
+                                {processingSummary ? 'Regenerating...' : 'Regenerate'}
+                            {:else}
+                                {processingSummary ? 'Generating...' : 'Generate Overview'}
+                            {/if}
+                        </button>
+                    </div>
+                    <div class="p-4 text-gray-700">
+                        {#if processingSummary}
+                            <div class="flex items-center gap-2 text-blue-600">
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {getContent('summary') ? 'Regenerating overview...' : 'Generating overview...'}
+                            </div>
+                        {:else if getContent('summary')?.content === 'FAILED'}
+                            <div class="text-red-600 mb-4">Failed to generate overview.</div>
                             <button 
-                                class="text-sm px-3 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-2"
+                                class="px-4 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-2"
                                 on:click={() => processDocument('summary')}
                                 disabled={processingSummary}
                             >
@@ -259,31 +260,15 @@
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
                                 {/if}
-                                {processingSummary ? 'Regenerating...' : 'Regenerate'}
+                                {processingSummary ? 'Trying Again...' : 'Try Again'}
                             </button>
-                        </div>
-                        <div class="p-4 text-gray-700">
-                            {#if getContent('summary')?.content === 'FAILED'}
-                                <div class="text-red-600 mb-4">Failed to generate overview.</div>
-                                <button 
-                                    class="px-4 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-2"
-                                    on:click={() => processDocument('summary')}
-                                    disabled={processingSummary}
-                                >
-                                    {#if processingSummary}
-                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                    {/if}
-                                    {processingSummary ? 'Trying Again...' : 'Try Again'}
-                                </button>
-                            {:else}
-                                {getContent('summary')?.content}
-                            {/if}
-                        </div>
+                        {:else if getContent('summary')?.content}
+                            {getContent('summary')?.content}
+                        {:else}
+                            <p class="text-gray-500 text-center py-4">Click "Generate Overview" to create a summary of this document.</p>
+                        {/if}
                     </div>
-                {/if}
+                </div>
 
                 <!-- Quiz section with generate button -->
                 <div class="bg-white rounded-xl shadow-sm overflow-hidden">

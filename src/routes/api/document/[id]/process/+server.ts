@@ -44,23 +44,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
             .set({ processingStatus: 'processing' })
             .where(eq(document.id, documentId));
 
-        // Process document in the background
+        // Start processing in background
         processDocument(doc, type).catch((e) => {
-            console.error('Processing failed:', e);
-            // Store failed status in content
-            db.insert(documentContent)
-                .values({
-                    documentId: doc.id,
-                    type,
-                    content: 'FAILED'
-                })
-                .onConflictDoUpdate({
-                    target: [documentContent.documentId, documentContent.type],
-                    set: { content: 'FAILED' }
-                })
-                .execute()
-                .catch(console.error);
-
+            logger.error({ err: e, documentId, stack: e.stack }, 'Processing failed');
+            
             // Update document status to failed
             db.update(document)
                 .set({ processingStatus: 'failed' })
@@ -69,13 +56,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
                 .catch(console.error);
         });
 
-        return json({ success: true, message: 'Processing started' });
-    } catch (e: any) {
-        logger.error({ 
-            err: e,
-            documentId: params.id,
-            stack: e.stack
-        }, 'Document processing failed');
-        throw error(500, 'Failed to process document');
+        return json({ 
+            success: true, 
+            message: 'Processing started'
+        });
+    } catch (e) {
+        logger.error({ err: e }, 'Failed to start processing');
+        throw error(500, 'Failed to start processing');
     }
 }; 

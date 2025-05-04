@@ -1,5 +1,7 @@
 import pino from 'pino';
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export const logger = pino({
     level: 'info',
     formatters: {
@@ -7,14 +9,16 @@ export const logger = pino({
             return { level: label };
         }
     },
-    transport: {
-        target: 'pino-pretty',
-        options: {
-            colorize: false,
-            translateTime: true,
-            ignore: 'pid,hostname',
+    ...(isDevelopment ? {
+        transport: {
+            target: 'pino-pretty',
+            options: {
+                colorize: false,
+                translateTime: true,
+                ignore: 'pid,hostname',
+            }
         }
-    }
+    } : {})
 });
 
 // Create specific loggers for different areas
